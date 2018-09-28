@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Demons</title>
+    <style>
+        #div_title {
+            border      : 3px solid black;
+            width       : 1200px;
+            height      : 50px;
+            font-size   : xx-large;
+            text-align  : center;
+        }
+        #div_life {
+            width       : 350px;
+            height      : 50px;
+            position    : relative;
+            float       : left;
+            margin-bottom : 2px;
+        }
+        #div_timer {
+            width       : 400px;
+            height      : 50px;
+            position    : relative;
+            float       : left;
+            font-size   : xx-large;
+            font-weight : bold;
+            text-align  : center;
+            margin-bottom : 2px;
+            display     : inline-block;
+        }
+        #div_button {
+            width       : 300px;
+            height      : 50px;
+            position    : relative;
+            float       : right;
+        }
+        .div_menu {
+            display     : inline-block;
+        }
+        .label {
+            width       : 100px;
+            height      : 50px;
+            position    : relative;
+            float       : left;
+            font-size   : xx-large;
+            font-weight : bold;
+            margin-bottom : 2px;
+        }
+    </style>
+</head>
+<body>
+    <div id="div_title">Card Game</div>
+    <div>&nbsp</div>
+    <div class="div_menu">
+        <div class="label">LIFE : </div>
+        <div id="div_life"></div>
+        <div class="label">TIME : </div>
+        <div id="div_timer"></div>
+        <div id="div_button">
+            <img src="img/gamestart.jpg" width="120px" height="50px" onclick="play.startGame()">
+            <img src="img/finishgame.jpg" width="120px" height="50px" onclick="play.stopGame()">
+        </div>
+    </div>
+    <div id="div_board">
+        <table border="1" cellpadding="0" ellspacing="3" id="card_table">
+
+        </table>
+    </div>
+
+    <script>
+
+        var cardList        = [];
+        var cardDeck        = [];
+        var timer           = null;
+        var minute          = 0;
+        var second          = 0;
+        var original_life   = 3;
+        var answer          = 0;
+
+        var firstChoice     = null;
+        var secondChoice    = null;
+
+        // 카드 생성
+        function Cards (argId, argNum, argName, argImgSrc) {
+            this.id         = argId;
+            this.num        = argNum;
+            this.name       = argName;
+            this.imgSrc     = argImgSrc;
+            this.backImgSrc = "img/back.png";
+        }
+
+        // 게임 세팅
+        function GameSet () {
+            var cardName = ["avocado", "banana", "berries", "blueberry", "coconut", "kiwi",
+                            "lime", "mangosteen", "orange", "pomegranate", "strawberry", "watermelon"];
+
+            // 모든 카드 24장
+            // 12종류, 2장씩
+            for (var cardCount = 0, cardNameCount = 0; cardCount < 24 ; cardCount++, cardNameCount++) {
+                let card_num    = cardNameCount;
+                let card_name   = cardName[cardNameCount];
+                let card_imgSrc = "img/" + card_name + ".png";
+
+                var tmpCard     = new Cards(cardCount, card_num, card_name, card_imgSrc);
+
+                // 카드 객체 배열에 삽입
+                cardList.push(tmpCard);
+
+                if (cardCount == 11) {
+                    cardNameCount = -1;
+                }
+            }
+
+            // 카드 섞기
+            var numList = [];
+            for (var listNum = 0 ; listNum < 24 ; listNum++) {
+                var overlap_check   = true;
+                var randNum         = Math.floor(Math.random() * 24);
+                // 중복 있는 지 확인
+                for (var h in numList) {
+                    if (randNum == numList[h]) {
+                        listNum--;
+                        overlap_check = false;
+                        break;
+                    }
+                }
+
+                // 중복이 없을 때만 저장
+                if (overlap_check) {
+                    numList[listNum] = randNum;
+                }
+            }
+
+            // 랜덤번호대로 카드 순서 섞기
+            for (var cardNum = 0 ; cardNum < 24 ; cardNum++) {
+                var tmpNum = numList.shift();
+                cardDeck[tmpNum] = cardList[cardNum];
+            }
+
+            // 라이프 설정
+            // 초기 라이프는 3개
+            lifeSet(original_life);
+
+        }
+
+        // 플레이
+        function Game () {
+            // 게임 시작
+            this.startGame = function () {
+                // 게임 시작 전 카드 생성
+                GameSet ();
+                alert("게임 시작");
+
+                // 카드 표기
+                // 처음에는 앞면
+                createTable(true);
+
+                // 3초 딜레이
+                // 카드 지우기
+                var board   = document.getElementById("card_table");
+                setTimeout(function remove () {
+                    clearBoard(board);
+
+                    // 뒷면으로 카드 재 생성
+                    createTable(false);
+
+                    // 게임 시간 타이머 생성
+                    timer = setInterval(gameTimer, 1000);
+                }, 5000);
+            };
+
+            // 게임 종료
+            this.stopGame = function () {
+                alert("게임 종료");
+
+                // 게임 초기화
+                var board   = document.getElementById("card_table");
+                var life    = document.getElementById("div_life");
+                var time    = document.getElementById("div_timer");
+
+                // 생성된 카드 모두 삭제
+                clearBoard(board);
+                clearBoard(life);
+                clearBoard(time);
+
+                // 타이머 초기화
+                clearInterval(timer);
+
+            };
+
+        }
+
+        // 테이블 생성 함수
+        function createTable (isItFront) {
+            for (var col = 0, num = 0 ; col < 3 ; col++) {
+                var create_tr = document.createElement('TR');
+
+                for (var i = 0 ; i < 8 ; i++) {
+                    var create_td = document.createElement('TD');
+                    var create_img = document.createElement('IMG');
+
+                    // 앞면, 뒷면 출력 여부 설정
+                    if (isItFront) {
+                        create_img.src      = cardDeck[num].imgSrc;
+                    } else {
+                        create_img.src      = cardDeck[num].backImgSrc;
+                        create_img.name     = cardDeck[num].name;
+                        create_img.id       = "img" + cardDeck[num].id;
+                    }
+
+                    create_img.width = 145;
+                    create_img.height = 145;
+                    create_td.appendChild(create_img);
+                    create_tr.appendChild(create_td);
+
+                    num++;
+                }
+
+                var card_table = document.getElementById("card_table");
+                card_table.appendChild(create_tr);
+            }
+
+            if (!isItFront) {
+                // 이벤트 추가
+                for (var card = 0 ; card < 24 ; card++) {
+                    let id = "img" + card;
+                    var cardId = document.getElementById(id);
+
+                    cardId.addEventListener("click", function () {
+                        let tmp = id.substring(3);
+                        // 카드 선택 후 확인
+                        // 카드 선택
+                        if (firstChoice == null && secondChoice == null) {
+                            this.src = "img/" + cardList[tmp].name + ".png";
+                            firstChoice = this;
+                        } else if (firstChoice != null && secondChoice == null) {
+                            this.src = "img/" + cardList[tmp].name + ".png";
+                            secondChoice = this;
+
+                            setTimeout(function turn () {
+                                // 선택한 카드 2개가 일치하는 지 확인
+                                // 일치하지 않으면 카드 다시 뒤집기
+                                if (firstChoice.name != secondChoice.name) {
+                                    document.getElementById(firstChoice.id).src = "img/back.png";
+                                    document.getElementById(secondChoice.id).src = "img/back.png";
+
+                                    // 라이프 차감
+                                    clearBoard(document.getElementById("div_life"));
+                                    lifeSet(--original_life);
+                                } else {
+                                    // 맞춘 카드는 이벤트 제거
+                                    firstChoice.removeEventListener("click", this);
+                                    secondChoice.removeEventListener("click", this);
+                                    // 맞추면 정답 개수 카운트
+                                    answer++;
+
+                                    if (answer == 12) {
+                                        alert("게임 클리어");
+                                        play.stopGame();
+                                    }
+                                }
+                                firstChoice = null;
+                                secondChoice = null;
+
+                            }, 1000);
+
+                        } else if (firstChoice != null && secondChoice != null) {
+
+                        }
+                    });
+                }
+            }
+        }
+
+        // 보드 초기화 함수
+        function clearBoard (argBoard) {
+            // 모든 자식 노드 (여기서는 img) 삭제
+            while (argBoard.hasChildNodes()) {
+                argBoard.removeChild(argBoard.firstChild);
+            }
+        }
+
+        // 라이프 세팅 함수
+        function lifeSet (life) {
+            // 라이프
+            var heart = document.getElementById("div_life");
+
+            for (var lifeCount = 0 ; lifeCount < life ; lifeCount++) {
+                var heart_img = document.createElement('IMG');
+                heart_img.src = "img/life.png";
+                heart_img.width = 40;
+                heart_img.height = 40;
+                heart.appendChild(heart_img);
+            }
+
+            if (life == 0) {
+                alert("LIFE가 모두 소진되어 게임이 종료됩니다.");
+                play.stopGame();
+            }
+        }
+
+        // 게임 진행 타이머
+        function gameTimer () {
+            //60초 지나면 1분씩 분 당 카운트
+            if (second > 60) {
+                second = 0;
+                minute++;
+            }
+
+            // 1초당 카운트
+            document.getElementById("div_timer").innerHTML = (minute + " : " + second);
+            second++;
+        }
+
+        var play = new Game();
+    </script>
+</body>
+</html>
